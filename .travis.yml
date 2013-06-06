@@ -1,0 +1,14 @@
+language: go
+
+before_install:
+  - export PROJECT="$PWD"
+  - cd && git clone git://github.com/zeromq/libzmq.git && cd libzmq && ./autogen.sh && ./configure && make && sudo make install 
+  - gvm install go1.1 && gvm use go1.1
+  - go env
+  - go version
+
+install:
+  - cd "$PROJECT" && go get -tags zmq_3_x -d -v
+
+script:
+  - go test -tags zmq_3_x -v
