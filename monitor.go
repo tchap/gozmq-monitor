@@ -27,20 +27,17 @@ and implements a channel-based API for receiving socket events.
 */
 package monitor
 
+// #include <zmq.h>
+import "C"
+
 import (
+	"errors"
 	"fmt"
 	"unsafe"
-	"errors"
 )
 
 import zmq "github.com/alecthomas/gozmq"
 import poller "github.com/tchap/gozmq-poller"
-
-/*
-#include <stdlib.h>
-#include <zmq.h>
-*/
-import "C"
 
 type SocketEvent struct {
 	Event uint16
@@ -59,8 +56,8 @@ type Monitor struct {
 func New(ctx *zmq.Context, socket *zmq.Socket,
 	addr string, events zmq.Event) (monitor *Monitor, err error) {
 
-	if C.ZMQ_VERSION_MAJOR < 3 || C.ZMQ_VERSION_MAJOR < 3 {
-		return nil, errors.New("Only libzmq >= 3.3 is supported.")
+	if C.ZMQ_VERSION_MAJOR < 3 || C.ZMQ_VERSION_MINOR < 3 {
+		return nil, errors.New("Deprecated API not supported")
 	}
 
 	mon, err := ctx.NewSocket(zmq.PAIR)
@@ -119,6 +116,7 @@ func (self *Monitor) Start() (eventChan <-chan *SocketEvent, err error) {
 			}
 
 			ex = self.poller.Continue()
+
 			if ex != nil {
 				eventCh <- &SocketEvent{Error: ex}
 				continue
@@ -178,15 +176,21 @@ func (self *Monitor) parseEvent(frames [][]byte) (event *SocketEvent) {
 	case 1: // libzmq < 3.3.0 - not supported
 		panic("Deprecated libzmq API is not supported.")
 	case 2: // libzmq >= 3.3.0
-		var e *C.zmq_event_t
-		e = ((*C.zmq_event_t)(unsafe.Pointer(&frames[0])));
+		var e SocketEvent
+		uint16Size := unsafe.Sizeof(e.Event)
+		int32Size := unsafe.Sizeof(e.Value)
 
-		return &SocketEvent{
-			Event: uint16(e.event),
-			Value: int32(e.value),
-			Addr:  string(frames[1]),
+		if uintptr(len(frames[0])) != (uint16Size + int32Size) {
+			panic(fmt.Sprintln("Invalid payload size [frame %v]", frames[0]))
 		}
+		event_raw := frames[0][:uint16Size]
+		value_raw := frames[0][int32Size:]
+
+		e.Event = *(*uint16)(unsafe.Pointer(&event_raw[0]))
+		e.Value = *(*int32)(unsafe.Pointer(&value_raw[0]))
+		e.Addr = string(frames[1])
+		return &e
 	default:
-		panic(fmt.Sprintln("Unexpected payload received: ", frames))
+		panic(fmt.Sprintln("Unexpected payload received: %v", frames))
 	}
 }
