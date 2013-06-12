@@ -108,7 +108,6 @@ func assertNextEvent(test *testing.T,
 
 	select {
 	case e := <-eventChan:
-		test.Logf("%#v\n", e)
 		if e.Error != nil {
 			return e.Error
 		}
