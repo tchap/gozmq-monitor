@@ -21,8 +21,13 @@
     IN THE SOFTWARE.
 */
 
+#ifndef GOZMQ_MONITOR_ZMQ_VERSION_GUARD_H
+#define GOZMQ_MONITOR_ZMQ_VERSION_GUARD_H
+
 #include <zmq.h>
 
 #if !(ZMQ_VERSION_MAJOR == 3 && ZMQ_VERSION_MINOR >= 3)
-#error Only libzmq >= 3.3 is supported.
+#error Only libzmq >= 3.3.0 is supported.
+#endif
+
 #endif

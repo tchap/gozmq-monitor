@@ -27,7 +27,9 @@ and implements a channel-based API for receiving socket events.
 */
 package monitor
 
+// #cgo pkg-config: libzmq
 // #include <zmq.h>
+// #include "zmq_version_guard.h"
 import "C"
 
 import (
@@ -56,8 +58,12 @@ type Monitor struct {
 func New(ctx *zmq.Context, socket *zmq.Socket,
 	addr string, events zmq.Event) (monitor *Monitor, err error) {
 
-	if C.ZMQ_VERSION_MAJOR < 3 || C.ZMQ_VERSION_MINOR < 3 {
-		return nil, errors.New("Deprecated API not supported")
+	var major, minor, patch C.int
+	C.zmq_version(&major, &minor, &patch)
+	if !(major == 3 && minor >= 3) {
+		return nil, errors.New(fmt.Sprintf(
+			"This library requires libzmq >= 3.3.0, but %d.%d.%d was detected.",
+			major, minor, patch))
 	}
 
 	mon, err := ctx.NewSocket(zmq.PAIR)
@@ -174,7 +180,7 @@ func (self *Monitor) CloseWait() (err error) {
 func (self *Monitor) parseEvent(frames [][]byte) (event *SocketEvent) {
 	switch len(frames) {
 	case 1: // libzmq < 3.3.0 - not supported
-		panic("Deprecated libzmq API is not supported.")
+		panic("Deprecated libzmq socket monitor API was detected.")
 	case 2: // libzmq >= 3.3.0
 		var e SocketEvent
 		uint16Size := unsafe.Sizeof(e.Event)
