@@ -10,4 +10,4 @@ install:
   - cd "$PROJECT" && go get -tags zmq_3_x -d -v
 
 script:
-  - go test -tags zmq_3_x -v
+  - go test -ldflags='-r /usr/local/lib' -tags zmq_3_x -v
